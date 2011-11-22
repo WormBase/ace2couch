@@ -1,0 +1,2 @@
+* Script to create views based on Ace models by using Ace::model.
+* Script to load jacedumps into Couch. jace2hash.pl will aid in this.
