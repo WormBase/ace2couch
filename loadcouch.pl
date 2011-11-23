@@ -36,8 +36,8 @@ my $couch = AD::Couch->new(
     host      => $host,
     port      => $port,
     database  => $db,
-    blocksize => 1_000_000, # memory requirement
-    nocheck   => 1,         # don't fetch revs, just dump
+    blocksize => 100_000_000, # memory requirement
+    nocheck   => 1,           # don't fetch revs, just dump
 );
 
 $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub {

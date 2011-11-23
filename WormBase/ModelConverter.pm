@@ -17,7 +17,7 @@ use constant SUB_TEMPLATE => <<'SUB';
 sub {
     my ($doc) = @_;
     if (my $href = $doc->__REPLACE_ME__) {
-        dmap($doc->{_id} => keys %$href);
+        dmap($doc->{_id} => [keys %$href]);
     }
 }
 SUB
