@@ -36,7 +36,7 @@ my $couch = AD::Couch->new(
     host      => $host,
     port      => $port,
     database  => $db,
-    blocksize => 200_000,   # memory requirements
+    blocksize => 1_000_000, # memory requirement
     nocheck   => 1,         # don't fetch revs, just dump
 );
 
@@ -98,6 +98,7 @@ while () {
     $total_time += $t2 - $t1;
 
     if ($count % 1000 == 0) {
+        local $| = 1;
         print $count, ' in ', $total_time," s\n";
         print $count/$total_time, '/s ', $total_time/$count, " s (avg)\n";
     }
