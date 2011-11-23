@@ -36,8 +36,8 @@ my $couch = AD::Couch->new(
     host      => $host,
     port      => $port,
     database  => $db,
-    blocksize => 50_000, # memory requirements
-    nocheck   => 1,      # don't fetch revs, just dump
+    blocksize => 200_000,   # memory requirements
+    nocheck   => 1,         # don't fetch revs, just dump
 );
 
 $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub {
@@ -91,7 +91,7 @@ while () {
     @{$hash}{'class','name'} = ($class, $name);
 
     ## load into Couch
-    $couch->add_doc($hash. $data_size); # will flush periodically to couch
+    $couch->add_doc($hash, $data_size); # will flush periodically to couch
 
     $t2 = time;
     ++$count;
