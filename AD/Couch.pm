@@ -71,11 +71,11 @@ sub error {
 }
 
 sub add_doc {
-    my ($self, $doc) = @_;
+    my ($self, $doc, $size) = @_;
     $doc = { Body => $doc } unless ref $doc eq 'HASH';
 
-    $self->_add_blocks($doc);
-    if ($self->_add_blocks($doc) >= $self->blocksize) {
+    # _add_block will compute (guess) the size if not provided
+    if ($self->_add_block($doc, $size) >= $self->blocksize) {
         return 0 unless $self->_flush_blocks;
     }
     return 1;
@@ -112,13 +112,12 @@ sub dburl {
     return "http://" . $self->host . ':' . $self->port . '/' . $self->db;
 }
 
-sub _add_blocks {
-    my $self = shift;
+sub _add_block {
+    my ($self, $block, $size) = @_;
+    $size //= $self->_size_of($_);
 
-    foreach (@_) {
-        push @{$self->{_blocks}}, $_;
-        $self->{_blocks_size} += $self->_size_of($_);
-    }
+    push @{$self->{_blocks}}, $block;
+    $self->{_blocks_size} += $size;
 
     return $self->{_blocks_size};
 }

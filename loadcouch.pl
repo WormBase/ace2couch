@@ -7,6 +7,7 @@
 use strict;
 use warnings;
 use Getopt::Long;
+use URI::Escape::XS qw(uri_escape);
 use WormBase::JaceConverter qw(treematrix2hash);
 use AD::Couch; # buffered couchloader, unfortunate namespace. WIP
 
@@ -30,14 +31,15 @@ unless ($quiet) {
 }
 
 my $couch = AD::Couch->new(
-    host     => $host,
-    port     => $port,
-    database => $db,
+    host      => $host,
+    port      => $port,
+    database  => $db,
+    blocksize => 50_000, # memory requirements
 );
 
 LOOP:
 while () {
-    my $data;
+    my ($data, $data_size);
     {
         local $/ = "\n\n";
         $data = <>;
@@ -54,7 +56,9 @@ while () {
         push @$matrix, \@row;
         $treewidth = @row if @row > $treewidth;
     }
-    undef $table; # free it up
+    # free up memory
+    undef $data; 
+    undef $table;
 
     ## parse matix into hash structure
     my $hash = treematrix2hash($matrix, 0, 0, undef, $treewidth);
