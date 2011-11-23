@@ -36,9 +36,6 @@ sub connect {
     }
     else {
         $self->agent(LWP::UserAgent->new(
-            default_headers => HTTP::Headers->new(
-                Content_Type => 'application/json',
-            ),
             keep_alive      => 10,
             timeout         => 300,
         ));
@@ -61,6 +58,8 @@ sub DESTROY {
 
 sub error {
     my $self = shift;
+    warn @_;
+    return;
 
     push @{$self->{error}}, join('', @_) if @_;
     return unless @{$self->{error}};
@@ -118,7 +117,7 @@ sub _add_blocks {
 
     foreach (@_) {
         push @{$self->{_blocks}}, $_;
-        $self->{_blocks_size} += length $_->{Body};
+        $self->{_blocks_size} += $self->_size_of($_);
     }
 
     return $self->{_blocks_size};
@@ -163,7 +162,8 @@ sub _flush_blocks {
     $json = encode_json({ keys => [ map { $_->{_id} // () } @$blocks ] });
     $response = $self->agent->request(
         POST $self->dburl . '/_all_docs',
-        Content => $json,
+        Content_Type => 'application/json',
+        Content      => $json,
     );
 
     my $rows = eval { decode_json($response->content)->{rows} };
@@ -194,7 +194,8 @@ sub _flush_blocks {
         $json = encode_json({ docs => \@blocks, all_or_nothing => JSON::true });
         $response = $self->agent->request(
             POST $self->dburl . '/_bulk_docs',
-            Content => $json,
+            Content_Type => 'application/json',
+            Content      => $json,
         );
 
         if ($response->is_error) {
@@ -210,9 +211,14 @@ sub _flush_blocks {
     }
 
     @{$self->{_blocks}} = ();
-    print "Flushed ", $count, " docs\n";
 
     return $count;
+}
+
+sub _size_of {
+    my (undef, $obj) = @_;
+    return length $obj->{Body} if $obj->{Body};
+    return length encode_json($obj);
 }
 
 1;
