@@ -16,7 +16,8 @@ our @EXPORT_OK = qw(list_models);
 use constant SUB_TEMPLATE => <<'SUB';
 sub {
     my ($doc) = @_;
-    if (my $href = $doc->__REPLACE_ME__) {
+    return unless $doc->{class} eq '__CLASS__';
+    if (my $href = $doc->__PATH__) {
         dmap($doc->{_id} => [keys %$href]);
     }
 }
@@ -39,10 +40,11 @@ sub run {
 
 sub model2designdoc {
     my $model = shift;
-    die 'assert failure, model has unknown chars :', $model->name
+    my $class = $model->name;
+    die 'assert failure, model has unknown chars :', $class
         if $model->name =~ /[^A-Za-z0-9_]/;
     my $ddoc = {
-        _id      => '_design/' . lc $model->name,
+        _id      => '_design/' . lc $class,
         language => 'perl',
         views    => {},
     };
@@ -53,10 +55,11 @@ sub model2designdoc {
             unless $model->valid_tag($tag);
 
         my $path_string = join '->',
-                          map { '{' . $_ . '}'}
+                          map { "{'" . $_ . "'}" }
                           $model->path($tag), $tag;
 
-        (my $sub_string = SUB_TEMPLATE) =~ s/__REPLACE_ME__/$path_string/g;
+        (my $sub_string = SUB_TEMPLATE) =~ s/__PATH__/$path_string/g;
+        $sub_string =~ s/__CLASS__/$class/g;
 
         $ddoc->{views}->{$tag}->{map} = $sub_string;
     }
