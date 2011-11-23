@@ -17,6 +17,9 @@ unless (-e $dir and -d $dir) {
 
 my $pm = Parallel::ForkManager->new(NUM_FORKS);
 
+mkdir 'logs';
+mkdir 'err';
+
 opendir(my $dirh, $dir);
 my @files = sort readdir($dirh);
 for my $base (@files) {
@@ -24,7 +27,7 @@ for my $base (@files) {
     my $file = File::Spec->catfile($dir, $base);
 
     $pm->start and next;
-    my $cmd = qq(perl loadcouch.pl --q @ARGV "$file" > "$base.log" 2> "$base.err");
+    my $cmd = qq(perl loadcouch.pl --q @ARGV "$file" > "logs/$base.log" 2> "err/$base.err");
     print $cmd, "\n";
     system($cmd);
     print 'Done ', $base, "\n";
