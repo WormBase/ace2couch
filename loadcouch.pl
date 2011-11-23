@@ -10,6 +10,7 @@ use Getopt::Long;
 use URI::Escape::XS qw(uri_escape);
 use WormBase::JaceConverter qw(treematrix2hash);
 use AD::Couch; # buffered couchloader, unfortunate namespace. WIP
+use Ace; # for split
 
 use constant LOCALHOST => '127.0.0.1';
 
@@ -57,7 +58,7 @@ while () {
         $treewidth = @row if @row > $treewidth;
     }
     # free up memory
-    undef $data; 
+    undef $data;
     undef $table;
 
     ## parse matix into hash structure
@@ -66,12 +67,16 @@ while () {
         warn 'Could not parse data into a hash structure';
         next;
     }
+    my ($class, $name) = Ace->split($matrix->[0][0]);
+    undef $matrix;
 
     ## rearrange the hash into Couch doc format (with _id)
     my $key = (keys %$hash)[0];
     $hash = $hash->{$key};
     $hash->{_id} = uri_escape($key);
+    @{$hash}{'class','name'} = ($class, $name);
 
     ## load into Couch
     $couch->add_doc($hash); # will flush periodically to couch
+    print $class, ' ', $name, "\n";
 }
