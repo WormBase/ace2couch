@@ -30,6 +30,7 @@ sub connect {
     $self->database($args{database} // $args{db} // DEFAULT_DATABASE);
     $self->blocksize($args{blocksize} || $args{block_size} ||
                      $args{bs} || DEFAULT_BLOCKSIZE);
+    $self->{nocheck} = $args{nocheck};
 
     if ($args{agent}) {
         $self->agent($args{agent});
@@ -157,29 +158,31 @@ sub _flush_blocks {
     my ($json, $response);
     my $blocks = $self->{_blocks};
 
-    # fetch the revisions so we can update if necessary
-    $json = encode_json({ keys => [ map { $_->{_id} // () } @$blocks ] });
-    $response = $self->agent->request(
-        POST $self->dburl . '/_all_docs',
-        Content_Type => 'application/json',
-        Content      => $json,
-    );
+    unless ($self->{nocheck}) {
+        # fetch the revisions so we can update if necessary
+        $json = encode_json({ keys => [ map { $_->{_id} // () } @$blocks ] });
+        $response = $self->agent->request(
+            POST $self->dburl . '/_all_docs',
+            Content_Type => 'application/json',
+            Content      => $json,
+        );
 
-    my $rows = eval { decode_json($response->content)->{rows} };
-    if (!$rows) {
-        $self->error("Problem with decoding JSON.\n",
-                     "Status line: ", $response->status_line, "\n",
-                     "Content: ", $response->content);
-        return if $try_once;
-        return $self->_flush_blocks(1);
-    }
+        my $rows = eval { decode_json($response->content)->{rows} };
+        if (!$rows) {
+            $self->error("Problem with decoding JSON.\n",
+                         "Status line: ", $response->status_line, "\n",
+                         "Content: ", $response->content);
+            return if $try_once;
+            return $self->_flush_blocks(1);
+        }
 
-    my %revs = map { $_->{id} => $_->{value}{rev} }
-               grep { ! $_->{error} } @$rows;
+        my %revs = map { $_->{id} => $_->{value}{rev} }
+                   grep { ! $_->{error} } @$rows;
 
-    # if a doc exists on db and needs to be updated, add rev info
-    foreach my $doc (@$blocks) {
-        $doc->{_rev} = $revs{$doc->{_id}} if exists $revs{$doc->{_id}};
+        # if a doc exists on db and needs to be updated, add rev info
+        foreach my $doc (@$blocks) {
+            $doc->{_rev} = $revs{$doc->{_id}} if exists $revs{$doc->{_id}};
+        }
     }
 
     my @ranges = ( [0, $#$blocks] ); # try all the blocks

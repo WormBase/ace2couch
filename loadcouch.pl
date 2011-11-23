@@ -10,6 +10,7 @@ use Getopt::Long;
 use URI::Escape::XS qw(uri_escape);
 use WormBase::JaceConverter qw(treematrix2hash);
 use AD::Couch; # buffered couchloader, unfortunate namespace. WIP
+use Time::HiRes qw(time);
 use Ace; # for split
 
 use constant LOCALHOST => '127.0.0.1';
@@ -36,10 +37,22 @@ my $couch = AD::Couch->new(
     port      => $port,
     database  => $db,
     blocksize => 50_000, # memory requirements
+    nocheck   => 1,      # don't fetch revs, just dump
 );
+
+$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub {
+    undef $couch; # cleanup
+    exit 0;
+};
+
+my $count = 0;
+my $total_time = 0;
 
 LOOP:
 while () {
+    my ($t1, $t2);
+    $t1 = time;
+
     my ($data, $data_size);
     {
         local $/ = "\n\n";
@@ -47,6 +60,7 @@ while () {
         last LOOP unless defined $data;
     }
 
+    $data_size = length $data;
     ## parse input into matrix
     open my $table, '<', \$data;
 
@@ -77,6 +91,14 @@ while () {
     @{$hash}{'class','name'} = ($class, $name);
 
     ## load into Couch
-    $couch->add_doc($hash); # will flush periodically to couch
-    print $class, ' ', $name, "\n";
+    $couch->add_doc($hash. $data_size); # will flush periodically to couch
+
+    $t2 = time;
+    ++$count;
+    $total_time += $t2 - $t1;
+
+    if ($count % 1000 == 0) {
+        print $count, ' in ', $total_time," s\n";
+        print $count/$total_time, '/s ', $total_time/$count, " s (avg)\n";
+    }
 }
