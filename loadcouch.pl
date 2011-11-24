@@ -36,7 +36,7 @@ my $couch = AD::Couch->new(
     host      => $host,
     port      => $port,
     database  => $db,
-    blocksize => 10_000_000,  # memory requirement
+    blocksize => 1_000_000,  # memory requirement
     nocheck   => 1,           # don't fetch revs, just dump
 );
 

@@ -8,7 +8,7 @@ use warnings;
 use File::Spec;
 use Parallel::ForkManager;
 
-use constant NUM_FORKS => 8;
+use constant NUM_FORKS => 3;
 
 my $dir = shift;
 unless (-e $dir and -d $dir) {
