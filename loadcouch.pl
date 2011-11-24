@@ -6,6 +6,7 @@
 
 use strict;
 use warnings;
+use sigtrap 'handler', \&sig_handler, 'normal-signals';
 use Getopt::Long;
 use URI::Escape::XS qw(uri_escape);
 use WormBase::JaceConverter qw(treematrix2hash);
@@ -40,10 +41,10 @@ my $couch = AD::Couch->new(
     nocheck   => 1,           # don't fetch revs, just dump
 );
 
-$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub {
-    undef $couch; # cleanup
-    exit 0;
-};
+sub sig_handler {
+    undef $couch;
+    exit;
+}
 
 my $count = 0;
 my $total_time = 0;
