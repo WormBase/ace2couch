@@ -30,6 +30,7 @@ sub connect {
     $self->database($args{database} // $args{db} // DEFAULT_DATABASE);
     $self->blocksize($args{blocksize} || $args{block_size} ||
                      $args{bs} || DEFAULT_BLOCKSIZE);
+    $self->refresh_views_on_flush($args{refresh_views_on_flush});
     $self->{nocheck} = $args{nocheck};
 
     if ($args{agent}) {
@@ -111,6 +112,45 @@ sub agent {
 sub dburl {
     my $self = shift;
     return "http://" . $self->host . ':' . $self->port . '/' . $self->db;
+}
+
+sub refresh_views_on_flush {
+    my ($self, $refresh) = @_;
+    return $self->{refresh_views_on_flush}
+        = $refresh // $self->{refresh_views_on_flush};
+}
+
+sub get_all_design_docs {
+    my $self = shift;
+
+    my ($json, $response);
+    my $url = $self->dburl . '/_all_docs?startkey="_design%2F"&endkey="_design%2Fzzzzzzzzzzz"'
+            . '&include_docs=true';
+    $response = $self->agent->request(GET $url);
+
+    # error-handling
+
+    my $data = decode_json($response->content);
+    return { map { $_->{_id} => $_ } map { $_->{doc} } @{$data->{rows}} };
+}
+
+sub refresh_all_views {
+    my $self = shift;
+
+    my $ddocs = $self->{_design_docs} //= $self->get_all_design_docs;
+
+    for my $ddoc_id (sort keys %$ddocs) {
+        my ($arbitrary_view) = keys %{$ddocs->{$ddoc_id}->{views}};
+        my $url = join('/', $self->dburl, $ddoc_id, '_view', $arbitrary_view);
+        my $res = $self->agent->request(GET $url);
+        if ($res->is_success) {
+            warn "View $ddoc_id got refreshed\n";
+        }
+        else {
+            warn "View $ddoc_id FAILED to refresh\n", $res->status_line, "\n",
+                $res->content, "\n", $url, "\n";
+        }
+    }
 }
 
 sub _add_block {
@@ -214,6 +254,10 @@ sub _flush_blocks {
 
     @{$self->{_blocks}} = ();
     $self->{_blocks_size} = 0;
+
+    if ($self->refresh_views_on_flush) {
+        $self->refresh_all_views;
+    }
 
     return $count;
 }

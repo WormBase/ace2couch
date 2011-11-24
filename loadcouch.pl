@@ -34,11 +34,12 @@ unless ($quiet) {
 }
 
 my $couch = AD::Couch->new(
-    host      => $host,
-    port      => $port,
-    database  => $db,
-    blocksize => 1_000_000,  # memory requirement
-    nocheck   => 1,           # don't fetch revs, just dump
+    host                   => $host,
+    port                   => $port,
+    database               => $db,
+    blocksize              => 1_000_000,  # memory requirement
+    nocheck                => 1,           # don't fetch revs, just dump
+    refresh_views_on_flush => 1,
 );
 
 sub sig_handler {

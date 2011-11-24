@@ -5,7 +5,7 @@ use Ace;
 use WormBase::ModelConverter;
 use AD::Couch;
 
-my $ace = Ace->connect(-host => 'localhost', -port => 2005)
+my $ace = Ace->connect(-host => 'dev.wormbase.org', -port => 2005)
     or die 'Connection error: ', Ace->error;
 my $couch = AD::Couch->new(
     host     => 'localhost',
