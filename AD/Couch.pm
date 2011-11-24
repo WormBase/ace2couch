@@ -213,6 +213,7 @@ sub _flush_blocks {
     }
 
     @{$self->{_blocks}} = ();
+    $self->{_blocks_size} = 0;
 
     return $count;
 }
