@@ -5,10 +5,12 @@ use Coro;
 use Coro::AnyEvent;
 use AnyEvent;
 use AnyEvent::CouchDB;
+use AnyEvent::CouchDB::Database::Buffered;
 use Data::Dumper;
 
 my $couch = AnyEvent::CouchDB->new; # localhost 5984
 my $db = $couch->db('ws228_experimental');
+$db = bless $db, 'AnyEvent::CouchDB::Database';
 
 my $ddocs = { map { $_->{_id} => $_ } map { $_->{doc} }
               @{get_all_views($db)->recv->{rows}} };

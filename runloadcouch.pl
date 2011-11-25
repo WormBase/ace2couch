@@ -29,9 +29,16 @@ for my $base (@files) {
     my $file = File::Spec->catfile($dir, $base . $EXTENSION);
 
     $pm->start and next;
-    my $cmd = qq(perl loadcouch.pl --db "${DB_PREFIX}\L${base}\E" --q @ARGV "$file" > "logs/$base.log" 2> "err/$base.err");
+    my $cmd;
+
+    $cmd = qq(perl -I. loadviews.pl "${DB_PREFIX}\L${base}\E" "$base");
     print $cmd, "\n";
     system($cmd);
+
+    $cmd = qq(perl loadcouch.pl --db "${DB_PREFIX}\L${base}\E" --q @ARGV "$file" > "logs/$base.log" 2> "err/$base.err");
+    print $cmd, "\n";
+    system($cmd);
+
     print 'Done ', $base, "\n";
     $pm->finish;
 }
