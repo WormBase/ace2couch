@@ -1,3 +1,2 @@
-* Rewrite AD::Couch with AnyEvent::CouchDB and Coro
 * Deal with LongText
 
