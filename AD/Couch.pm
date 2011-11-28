@@ -5,15 +5,14 @@ package AD::Couch;
 
 use strict;
 use warnings;
-use LWP::UserAgent;
-use HTTP::Request::Common;
-use HTTP::Headers;
+use AnyEvent::CouchDB;
+use Coro;
 use JSON;
 
-use constant DEFAULT_HOST      => 'localhost';
-use constant DEFAULT_PORT      => 5984;
-use constant DEFAULT_DATABASE  => 'test';
-use constant DEFAULT_BLOCKSIZE => 1_000_000;
+use constant DEFAULT_HOST            => 'localhost';
+use constant DEFAULT_PORT            => 5984;
+use constant DEFAULT_DATABASE        => 'test';
+use constant DEFAULT_MAX_BUFFER_SIZE => 1_000_000;
 
 BEGIN {
     *new = \&connect;
@@ -28,33 +27,31 @@ sub connect {
     $self->host($args{host} || DEFAULT_HOST);
     $self->port($args{port} || DEFAULT_PORT);
     $self->database($args{database} // $args{db} // DEFAULT_DATABASE);
-    $self->blocksize($args{blocksize} || $args{block_size} ||
-                     $args{bs} || DEFAULT_BLOCKSIZE);
+    $self->max_buffer_size($args{max_buffer_size} || DEFAULT_MAX_BUFFER_SIZE);
     $self->refresh_views_on_flush($args{refresh_views_on_flush});
-    $self->{nocheck} = $args{nocheck};
 
-    if ($args{agent}) {
-        $self->agent($args{agent});
+    $self->{_agent} = AnyEvent::CouchDB->new('http://'.$self->host.':'.$self->port.'/');
+    $self->{_db} = $self->{_agent}->db($self->database);
+
+    # check for the DB and make if necessary
+  FINDDB: {
+        my $dbs = $self->{_agent}->all_dbs->recv;
+        foreach (@$dbs) {
+            last FINDDB if $self->database eq $_;
+        }
+        $self->{_db}->create->recv;
     }
-    else {
-        $self->agent(LWP::UserAgent->new(
-            keep_alive      => 10,
-            timeout         => 300,
-        ));
-    }
 
-    return unless $self->_make_database;
-
-    $self->{_blocks} = [];
-    $self->{_blocks_size} = 0;
+    $self->{_buffer} = [];
+    $self->{_buffer_size} = 0;
 
     return $self;
 }
 
 sub DESTROY {
     my $self = shift;
-    if (@{$self->{_blocks}}) {
-        $self->_flush_blocks;
+    if (@{$self->{_buffer}}) {
+        $self->_flush_buffer;
     }
 }
 
@@ -77,10 +74,9 @@ sub add_doc {
     $doc = { Body => $doc } unless ref $doc eq 'HASH';
 
     # _add_block will compute (guess) the size if not provided
-    if ($self->_add_block($doc, $size) >= $self->blocksize) {
-        return 0 unless $self->_flush_blocks;
+    if ($self->_add_block($doc, $size) >= $self->max_buffer_size) {
+        $self->_flush_buffer;
     }
-    return 1;
 }
 
 sub port {
@@ -98,20 +94,10 @@ sub database {
     return $self->{database} = $db // $self->{database};
 }
 
-sub blocksize {
+sub max_buffer_size {
     my ($self, $bs) = @_;
-    return $self->{blocksize} = $bs // $self->{blocksize};
+    return $self->{max_buffer_size} = $bs // $self->{max_buffer_size};
 
-}
-
-sub agent {
-    my ($self, $ag) = @_;
-    return $self->{agent} = $ag || $self->{agent};
-}
-
-sub dburl {
-    my $self = shift;
-    return "http://" . $self->host . ':' . $self->port . '/' . $self->db;
 }
 
 sub refresh_views_on_flush {
@@ -123,14 +109,12 @@ sub refresh_views_on_flush {
 sub get_all_design_docs {
     my $self = shift;
 
-    my ($json, $response);
-    my $url = $self->dburl . '/_all_docs?startkey="_design%2F"&endkey="_design%2Fzzzzzzzzzzz"'
-            . '&include_docs=true';
-    $response = $self->agent->request(GET $url);
+    my $data = $self->{_db}->all_docs({
+        startkey     => '_design/',
+        endkey       => '_design/zzzzzzzzzzzzzzzzzzzzzzzzzz',
+        include_docs => 1,
+    })->recv; # this can fail... should handle
 
-    # error-handling
-
-    my $data = decode_json($response->content);
     return { map { $_->{_id} => $_ } map { $_->{doc} } @{$data->{rows}} };
 }
 
@@ -139,91 +123,60 @@ sub refresh_all_views {
 
     my $ddocs = $self->{_design_docs} //= $self->get_all_design_docs;
 
-    for my $ddoc_id (sort keys %$ddocs) {
-        my ($arbitrary_view) = keys %{$ddocs->{$ddoc_id}->{views}};
-        my $url = join('/', $self->dburl, $ddoc_id, '_view', $arbitrary_view);
-        my $res = $self->agent->request(GET $url);
-        if ($res->is_success) {
-            warn "View $ddoc_id got refreshed\n";
-        }
-        else {
-            warn "View $ddoc_id FAILED to refresh\n", $res->status_line, "\n",
-                $res->content, "\n", $url, "\n";
-        }
-    }
+    my @coros = map {
+        my $ddoc_id= $_;
+        async {
+            my ($arbitrary_view) = keys %{$ddocs->{$ddoc_id}->{views}};
+            (my $model = $ddoc_id) =~ s{_design/}{};
+
+            # try getting the view until it's generated
+            my $count = 0;
+            my $result;
+            while (! eval { $self->{_db}->view($model . '/' . $arbitrary_view)->recv }) {
+                last if ++$count > 10; # hardcoded...
+                Coro::AnyEvent::sleep(10);
+            }
+        };
+    } sort keys %$ddocs;
+
+    $_->join foreach @coros;
 }
 
 sub _add_block {
     my ($self, $block, $size) = @_;
     $size //= $self->_size_of($_);
 
-    push @{$self->{_blocks}}, $block;
-    $self->{_blocks_size} += $size;
-
-    return $self->{_blocks_size};
+    push @{$self->{_buffer}}, $block;
+    return $self->{_buffer_size} += $size;
 }
 
-sub _make_database {
+sub _flush_buffer {
     my $self = shift;
 
-    my ($json, $response);
-
-    $response = $self->agent->request(GET $self->dburl);
-    $json = decode_json($response->content);
-
-    if ($json->{error} and $json->{reason} eq 'no_db_file') {
-        # try making the db
-        $response = $self->agent->request(PUT $self->dburl);
-        $json = decode_json($response->content);
-        if ($json->{error}) {
-            $self->error("Could not make database ", $self->db,
-                         ' : ', $json->{reason});
-            return;
-        }
-        return 1;
+    $self->{_db}->bulk_docs($self->{_buffer})->recv;
+    if ($self->refresh_views_on_flush) {
+        $self->refresh_all_views;
     }
+    my $num_docs = @{$self->{_buffer}};
+    @{$self->{_buffer}} = ();
+    $self->{_buffer_size} = 0;
 
-    if ($json->{error}) {
-        $self->error("Could not make database ", $self->db, ':',
-                     $json->{reason} || "Can't get connection to " . $self->dburl);
-        return;
-    }
-
-    return 1;
+    return $num_docs;
 }
 
-sub _flush_blocks {
+sub _size_of {
+    my (undef, $obj) = @_;
+    return length $obj->{Body} if $obj->{Body};
+    return length encode_json($obj);
+}
+
+## OLD DEPRECATED STUFF
+
+sub _old_flush_buffer {
     my ($self, $try_once) = @_;
 
     my ($json, $response);
-    my $blocks = $self->{_blocks};
-
-    unless ($self->{nocheck}) {
-        # fetch the revisions so we can update if necessary
-        $json = encode_json({ keys => [ map { $_->{_id} // () } @$blocks ] });
-        $response = $self->agent->request(
-            POST $self->dburl . '/_all_docs',
-            Content_Type => 'application/json',
-            Content      => $json,
-        );
-
-        my $rows = eval { decode_json($response->content)->{rows} };
-        if (!$rows) {
-            $self->error("Problem with decoding JSON.\n",
-                         "Status line: ", $response->status_line, "\n",
-                         "Content: ", $response->content);
-            return if $try_once;
-            return $self->_flush_blocks(1);
-        }
-
-        my %revs = map { $_->{id} => $_->{value}{rev} }
-                   grep { ! $_->{error} } @$rows;
-
-        # if a doc exists on db and needs to be updated, add rev info
-        foreach my $doc (@$blocks) {
-            $doc->{_rev} = $revs{$doc->{_id}} if exists $revs{$doc->{_id}};
-        }
-    }
+    my $blocks = $self->{_buffer};
 
     my @ranges = ( [0, $#$blocks] ); # try all the blocks
 
@@ -252,20 +205,14 @@ sub _flush_blocks {
         }
     }
 
-    @{$self->{_blocks}} = ();
-    $self->{_blocks_size} = 0;
+    @{$self->{_buffer}} = ();
+    $self->{_buffer_size} = 0;
 
     if ($self->refresh_views_on_flush) {
         $self->refresh_all_views;
     }
 
     return $count;
-}
-
-sub _size_of {
-    my (undef, $obj) = @_;
-    return length $obj->{Body} if $obj->{Body};
-    return length encode_json($obj);
 }
 
 1;
