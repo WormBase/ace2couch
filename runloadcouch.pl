@@ -25,7 +25,7 @@ mkdir 'err';
 opendir(my $dirh, $dir);
 my @files = sort readdir($dirh);
 for my $base (@files) {
-    next unless $base =~ s/\Q$EXTENSION\E$//;
+    next unless $base =~ s/\Q$EXTENSION\E$(?:\.\d+)?//;
     my $file = File::Spec->catfile($dir, $base . $EXTENSION);
 
     $pm->start and next;

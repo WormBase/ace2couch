@@ -4,6 +4,7 @@ use warnings;
 use AnyEvent::CouchDB;
 use Ace;
 use WormBase::ModelConverter;
+
 my $db    = shift or die "Need DB\n";
 my $class = shift or die "Need class\n";
 
@@ -15,10 +16,7 @@ my $couch     = $couchconn->db($db);
 FINDDB: {
     my $dbs = $couchconn->all_dbs->recv;
     foreach (@$dbs) {
-        if ($db eq $_) {
-            $couch->drop->recv;
-            last;
-        }
+        last FINDDB if $db eq $_;
     }
     $couch->create->recv;
 }
