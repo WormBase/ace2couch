@@ -13,12 +13,35 @@ use Exporter 'import';
 our @EXPORT    = qw(model2designdoc get_models);
 our @EXPORT_OK = qw(list_models);
 
+my %standard_views = (
+    class => <<'SUB',
+sub {
+    my $doc = shift;
+    dmap([$doc->{_id}, $doc->{class}, $doc->{name} => $doc->{class});
+}
+SUB
+    name => <<'SUB',
+sub {
+    my $doc = shift;
+    dmap([$doc->{_id}, $doc->{class}, $doc->{name}] => $doc->{name});
+}
+SUB
+);
+
 use constant SUB_TEMPLATE => <<'SUB';
 sub {
     my ($doc) = @_;
-    return unless $doc->{class} eq '__CLASS__';
     if (my $href = $doc->__PATH__) {
-        dmap($doc->{_id} => [keys %$href]);
+        dmap([$doc->{_id}, $doc->{class}, $doc->{name}] => [keys %$href]);
+    }
+}
+SUB
+
+use constant SUB_TREE_TEMPLATE => <<'SUB';
+sub {
+    my ($doc) = @_;
+    if (my $href = $doc->__PATH__) {
+        dmap([$doc->{_id}, $doc->{class}, $doc->{name}] => $href);
     }
 }
 SUB
@@ -49,6 +72,10 @@ sub model2designdoc {
         views    => {},
     };
 
+    for my $view_id (keys %standard_views) {
+        $ddoc->{views}->{$view_id}->{map} = $standard_views{$view_id};
+    }
+
     ## each tag is a "view"
     for my $tag ($model->tags) {
         warn "For some reason, $tag is not a valid tag.\n"
@@ -59,9 +86,10 @@ sub model2designdoc {
                           $model->path($tag), $tag;
 
         (my $sub_string = SUB_TEMPLATE) =~ s/__PATH__/$path_string/g;
-        $sub_string =~ s/__CLASS__/$class/g;
+        (my $sub_tree_string = SUB_TREE_TEMPLATE) =~ s/__PATH__/$path_string/g;
 
         $ddoc->{views}->{$tag}->{map} = $sub_string;
+        $ddoc->{views}->{"${tag}_TREE"}->{map} = $sub_tree_string;
     }
 
     return $ddoc;
