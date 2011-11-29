@@ -1,12 +1,16 @@
 use strict;
 use warnings;
 
+use lib '.';
 use AnyEvent::CouchDB;
 use Ace;
 use WormBase::ModelConverter;
 
 my $db    = shift or die "Need DB\n";
 my $class = shift or die "Need class\n";
+
+die 'Require modified Model.pm but got another from ', $INC{'Ace/Model.pm'}, "\n"
+    unless $INC{'Ace/Model.pm'} eq 'Ace/Model.pm';
 
 my $ace = Ace->connect(-host => 'dev.wormbase.org', -port => 2005)
     or die 'Connection error: ', Ace->error;

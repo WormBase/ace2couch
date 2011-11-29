@@ -31,15 +31,16 @@ for my $base (@files) {
     $pm->start and next;
     my $cmd;
 
-    $cmd = qq(perl -I. loadviews.pl "${DB_PREFIX}\L${base}\E" "$base");
-    print $cmd, "\n";
+    $cmd = qq(perl loadviews.pl "${DB_PREFIX}\L${base}\E" "$base");
+    print "Loading views for $base into $DB_PREFIX\L$base\E\n";
     system($cmd);
+    print "Loaded views for $base\n";
 
     $cmd = qq(perl loadcouch.pl --db "${DB_PREFIX}\L${base}\E" --q @ARGV "$file" > "logs/$base.log" 2> "err/$base.err");
-    print $cmd, "\n";
+    print "Loading objects for $base into $DB_PREFIX\L$base\E\n";
     system($cmd);
+    print "Loaded objects for $base\n";
 
-    print 'Done ', $base, "\n";
     $pm->finish;
 }
 
