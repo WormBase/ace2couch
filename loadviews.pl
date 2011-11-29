@@ -1,10 +1,11 @@
-use strict;
-use warnings;
+use common::sense;
 
 use lib '.';
 use AnyEvent::CouchDB;
 use Ace;
+use Ace::Model;
 use WormBase::ModelConverter;
+use Try::Tiny;
 
 my $db    = shift or die "Need DB\n";
 my $class = shift or die "Need class\n";
@@ -27,6 +28,11 @@ FINDDB: {
 
 my $model = $ace->model($class) or die "Could not fetch model for class $class\n";
 my $ddoc = model2designdoc($model);
+try { # get the doc for rev first
+    my $exist = $couch->open_doc($ddoc->{_id})->recv;
+    $ddoc->{_rev} = $exist->{_rev};
+}
+catch {
+    when (!/404 - Object Not Found/) { warn $_ }
+};
 $couch->save_doc($ddoc)->recv;
-
-print $INC{'Ace/Model.pm'}, "\n";

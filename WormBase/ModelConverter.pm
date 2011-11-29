@@ -17,7 +17,7 @@ my %standard_views = (
     class => <<'SUB',
 sub {
     my $doc = shift;
-    dmap([$doc->{_id}, $doc->{class}, $doc->{name} => $doc->{class});
+    dmap([$doc->{_id}, $doc->{class}, $doc->{name}] => $doc->{class});
 }
 SUB
     name => <<'SUB',
