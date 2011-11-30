@@ -34,6 +34,7 @@ sub treematrix2hash {
     $maxrow //= scalar @$matrix;
     $maxcol //= _get_matrix_width($matrix);
 
+    return if $col >= $maxcol;
     return unless $matrix->[$row][$col];
 
     my $hash;

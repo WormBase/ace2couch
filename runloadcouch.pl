@@ -3,12 +3,11 @@
 
 # run NUM_FORKS loaders at a time
 
-use strict;
-use warnings;
+use common::sense;
 use File::Spec;
 use Parallel::ForkManager;
 
-use constant NUM_FORKS => 3; # number of cores available
+use constant NUM_FORKS => 4; # number of cores available
 my $EXTENSION = ".jace";
 my $DB_PREFIX = "ws228_experimental_";
 
@@ -24,19 +23,22 @@ mkdir 'err';
 
 opendir(my $dirh, $dir);
 my @files = sort readdir($dirh);
-for my $base (@files) {
-    next unless $base =~ s/\Q$EXTENSION\E$(?:\.\d+)?//;
-    my $file = File::Spec->catfile($dir, $base . $EXTENSION);
+for my $fname (@files) {
+    my $base = $fname;
+    next unless $base =~ s/\Q$EXTENSION\E(-\d+)?$/$1/;
+    (my $model = $fname) =~ s/\Q$EXTENSION\E(?:-\d+)?$//;
+
+    my $file = File::Spec->catfile($dir, $fname);
 
     $pm->start and next;
     my $cmd;
 
-    $cmd = qq(perl loadviews.pl "${DB_PREFIX}\L${base}\E" "$base");
+    $cmd = qq(perl loadviews.pl "${DB_PREFIX}\L${base}\E" "$model");
     print "Loading views for $base into $DB_PREFIX\L$base\E\n";
     system($cmd);
     print "Loaded views for $base\n";
 
-    $cmd = qq(perl loadcouch.pl --db "${DB_PREFIX}\L${base}\E" --q @ARGV "$file" > "logs/$base.log" 2> "err/$base.err");
+    $cmd = qq(perl loadcouch.pl --db "${DB_PREFIX}\L${base}\E" --q @ARGV "$file" > "logs/$fname.log" 2> "err/$fname.err");
     print "Loading objects for $base into $DB_PREFIX\L$base\E\n";
     system($cmd);
     print "Loaded objects for $base\n";
