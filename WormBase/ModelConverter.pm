@@ -89,7 +89,7 @@ sub model2designdoc {
         (my $sub_tree_string = SUB_TREE_TEMPLATE) =~ s/__PATH__/$path_string/g;
 
         $ddoc->{views}->{$tag}->{map} = $sub_string;
-        $ddoc->{views}->{"${tag}_TREE"}->{map} = $sub_tree_string;
+        $ddoc->{views}->{"${tag}~TREE"}->{map} = $sub_tree_string;
     }
 
     return $ddoc;
