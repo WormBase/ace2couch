@@ -111,7 +111,7 @@ sub get_all_design_docs {
 
     my $data = $self->{_db}->all_docs({
         startkey     => '_design/',
-        endkey       => '_design/zzzzzzzzzzzzzzzzzzzzzzzzzz',
+        endkey       => '_design0',
         include_docs => 1,
     })->recv; # this can fail... should handle
 
