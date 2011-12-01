@@ -16,6 +16,7 @@ use Ace; # for split
 use constant LOCALHOST => '127.0.0.1';
 
 my ($host, $port, $db) = (LOCALHOST, 5984, 'test');
+my $refresh_views = 1;
 my $quiet;
 
 GetOptions(
@@ -23,6 +24,7 @@ GetOptions(
     'port=s'        => \$port,
     'database|db=s' => \$db,
     'quiet'         => \$quiet,
+    'refresh-views' => \$refresh_views,
 );
 
 unless ($quiet) {
@@ -37,7 +39,7 @@ my $couch = AD::Couch->new(
     port                   => $port,
     database               => $db,
     max_buffer_size        => 1_000_000,  # memory requirement
-    refresh_views_on_flush => 1,
+    refresh_views_on_flush => $refresh_views,
 );
 
 my $count = 0;
@@ -98,3 +100,6 @@ while () {
         print $count/$total_time, '/s ', $total_time/$count, " s (avg)\n";
     }
 }
+
+print $count, ' in ', $total_time," s\n";
+print $count/$total_time, '/s ', $total_time/$count, " s (avg)\n";
