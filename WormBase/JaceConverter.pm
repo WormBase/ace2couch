@@ -45,9 +45,8 @@ sub treematrix2hash {
         while ($i < $maxrow && !$matrix->[$i][$col]) { ++$i }
 
         my ($class, $name) = Ace->split($matrix->[$row][$col]);
-        my $key = $class =~ /^[a-z]/ || $class eq 'Text' ? $name : "${class}~${name}";
 
-        $hash->{$key}
+        $hash->{"${class}~${name}"}
             = treematrix2hash($matrix, $row, $col + 1, $i, $maxcol);
 
         $row = $i;
