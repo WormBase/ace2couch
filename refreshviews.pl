@@ -15,12 +15,11 @@ my @coros = map {
         my $ddoc = ${ get_all_views($db)->recv->{rows} }[0]->{doc}
             or return;
         print "Refreshing $dbname\n";
-        my ($arbitrary_view) = keys %{$ddoc->{views}};
         (my $model = $ddoc->{_id}) =~ s{_design/}{};
 
         # try getting the view until it's generated
         my $result;
-        while (!($result = eval { $db->view($model . '/' . $arbitrary_view)->recv })) {
+        while (!($result = eval { $db->view($model . '/id', { limit => 1 } )->recv })) {
             print "Waiting on $dbname\n";
             Coro::AnyEvent::sleep(10);
         };

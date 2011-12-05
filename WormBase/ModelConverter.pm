@@ -14,16 +14,22 @@ our @EXPORT    = qw(model2designdoc get_models);
 our @EXPORT_OK = qw(list_models);
 
 my %standard_views = (
-    class => <<'SUB',
+#     class => <<'SUB',
+# sub {
+#     my $doc = shift;
+#     dmap($doc->{_id} => $doc->{class});
+# }
+# SUB
+#     name => <<'SUB',
+# sub {
+#     my $doc = shift;
+#     dmap($doc->{_id} => $doc->{name});
+# }
+# SUB
+    id => <<'SUB',
 sub {
     my $doc = shift;
-    dmap([$doc->{_id}, $doc->{class}, $doc->{name}] => $doc->{class});
-}
-SUB
-    name => <<'SUB',
-sub {
-    my $doc = shift;
-    dmap([$doc->{_id}, $doc->{class}, $doc->{name}] => $doc->{name});
+    dmap($doc->{_id} => $doc->{_id});
 }
 SUB
 );
@@ -32,7 +38,7 @@ use constant SUB_TEMPLATE => <<'SUB';
 sub {
     my ($doc) = @_;
     if (my $href = $doc->__PATH__) {
-        dmap([$doc->{_id}, $doc->{class}, $doc->{name}] => [keys %$href]);
+        dmap($doc->{_id} => [keys %$href]);
     }
 }
 SUB
@@ -41,7 +47,7 @@ use constant SUB_TREE_TEMPLATE => <<'SUB';
 sub {
     my ($doc) = @_;
     if (my $href = $doc->__PATH__) {
-        dmap([$doc->{_id}, $doc->{class}, $doc->{name}] => $href);
+        dmap($doc->{_id} => $href);
     }
 }
 SUB
