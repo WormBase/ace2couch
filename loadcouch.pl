@@ -56,7 +56,7 @@ while () {
         local $/ = "\n\n";
         while (length $buffer < MEMORY_REQUIREMENT) {
             my $datum = <>;
-            last MAIN unless defined $buffer && defined $datum;
+            last MAIN unless length $buffer || defined $datum;
             last READ unless defined $datum;
             $buffer .= $datum;
         }
