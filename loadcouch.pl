@@ -13,11 +13,12 @@ use Time::HiRes qw(time);
 use Ace; # for split
 use Parallel::ForkManager;
 
+use constant SUCCESS_EXIT_CODE  => 0;
 use constant LOCALHOST          => '127.0.0.1';
-use constant MEMORY_REQUIREMENT => 10_000_000; # 10 MB in theory
+use constant STD_COUCHDB_PORT   => 5984;
+use constant MEMORY_REQUIREMENT => 20_000_000; # 20 MB in theory
 
-my ($host, $port, $db) = (LOCALHOST, 5984, 'test');
-my $refresh_views = 1;
+my ($host, $port, $db) = (LOCALHOST, STD_COUCHDB_PORT, 'test');
 my $quiet;
 
 GetOptions(
@@ -25,7 +26,6 @@ GetOptions(
     'port=s'        => \$port,
     'database|db=s' => \$db,
     'quiet'         => \$quiet,
-    'refresh-views' => \$refresh_views,
 );
 
 unless ($quiet) {
@@ -56,11 +56,12 @@ while () {
         local $/ = "\n\n";
         while (length $buffer < MEMORY_REQUIREMENT) {
             my $datum = <>;
-            last MAIN unless defined $buffer && defined $datum;
-            last READ unless defined $datum;
+            last READ if !defined $datum;
             $buffer .= $datum;
         }
     }
+
+    last MAIN unless length $buffer;
 
     $pm->start and next MAIN;
 
@@ -70,7 +71,7 @@ while () {
         database               => $db,
         max_buffer_size        => MEMORY_REQUIREMENT,
                                   # probably won't be reached half the time
-        refresh_views_on_flush => $refresh_views,
+        refresh_views_on_flush => 0,
     );
 
     my ($time, $count) = (0,0);
@@ -127,7 +128,6 @@ while () {
 
     }
 
-    use constant SUCCESS_EXIT_CODE => 0;
     $pm->finish(SUCCESS_EXIT_CODE, [ $count, $time ]);
 }
 
