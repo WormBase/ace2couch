@@ -22,7 +22,7 @@ if ($ALL) {
 }
 
 my @coros;
-push @coros, async { compact_views() }     if $COMPACT_VIEWS;
+push @coros, async { compact_views() },    if $COMPACT_VIEWS;
 push @coros, async { compact_databases() } if $COMPACT_DBS;
 $_->join foreach @coros;
 
@@ -58,7 +58,7 @@ sub until_not_timeout (&;$) {
     $wait_msg .= " on $id" if length $id;
 
     while (!eval { $code->() }) {
-        if ($@ !~ /timeout/i) {
+        if ($@ !~ /time/i) {
             warn "Error when $wait_msg: $@\n";
             return;
         }
