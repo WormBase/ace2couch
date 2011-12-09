@@ -4,7 +4,8 @@ use AnyEvent::CouchDB;
 use Coro;
 use Coro::AnyEvent;
 
-my $DB_PREFIX = 'ws228_experimental_';
+use constant CONCURRENCY => 10;
+my $DB_PREFIX = 'ws228_';
 sub until_not_timeout (&;$); # forward dec
 
 my ($COMPACT_VIEWS, $COMPACT_DBS, $ALL);
@@ -21,6 +22,8 @@ if ($ALL) {
     $COMPACT_VIEWS = $COMPACT_DBS = 1;
 }
 
+my $concurrency = Coro::Semaphore->new(CONCURRENCY);
+
 my @coros;
 push @coros, async { compact_views() },    if $COMPACT_VIEWS;
 push @coros, async { compact_databases() } if $COMPACT_DBS;
@@ -31,6 +34,7 @@ sub compact_views {
         my $db = $couch->db($_);
         my $class = dbn2class($_);
         async {
+            my $guard = $concurrency->guard;
             until_not_timeout { $db->post("_compact/$class")->recv }
                               "$class view compaction";
         };
@@ -44,6 +48,7 @@ sub compact_databases {
         my $db = $couch->db($_);
         my $class = dbn2class($_);
         async {
+            my $guard = $concurrency->guard;
             until_not_timeout { $db->compact->recv } "$class db compaction";
         };
     } @databases;

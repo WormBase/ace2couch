@@ -7,7 +7,7 @@
 use common::sense;
 use Getopt::Long;
 use URI::Escape::XS qw(uri_escape);
-use WormBase::JaceConverter qw(treematrix2hash);
+use WormBase::Convert::JAce qw(treematrix2hash);
 use AD::Couch; # buffered couchloader, unfortunate namespace. WIP
 use Time::HiRes qw(time);
 use Ace; # for split

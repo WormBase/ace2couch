@@ -4,15 +4,15 @@ use Coro::AnyEvent;
 use AnyEvent;
 use AnyEvent::CouchDB;
 
-my $dbprefix = 'ws228_experimental';
+my $dbprefix = shift // 'ws228_';
 
 my $couch = AnyEvent::CouchDB->new; # localhost 5984
 
 my @coros = map {
     my $db = $couch->db($_);
     my $dbname = $db->name;
-    async {
-        my $ddoc = ${ get_all_views($db)->recv->{rows} }[0]->{doc}
+    map { async {
+        my $ddoc = ${ get_all_ddocs($db)->recv->{rows} }[0]->{doc}
             or return;
         print "Refreshing $dbname\n";
         (my $model = $ddoc->{_id}) =~ s{_design/}{};
@@ -25,12 +25,12 @@ my @coros = map {
         };
 
         print "DONE $dbname.\n";
-    };
+    } } map { $_->{doc} } @{ get_all_ddocs($db)->recv->{rows} };
 } grep { /^$dbprefix/o } @{$couch->all_dbs->recv};
 
 $_->join foreach @coros;
 
-sub get_all_views { # can probably subclass this
+sub get_all_ddocs { # can probably subclass this
     my $db = shift;
     return $db->all_docs({
         startkey     => '_design/',

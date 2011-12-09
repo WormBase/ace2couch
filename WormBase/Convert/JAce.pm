@@ -1,4 +1,4 @@
-package WormBase::JaceConverter;
+package WormBase::Convert::JAce;
 
 # modulino for converting Jace dumps
 
@@ -66,4 +66,4 @@ sub _get_matrix_width {
 
 run() unless caller;
 
-1;
+__PACKAGE__

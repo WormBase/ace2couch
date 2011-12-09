@@ -1,10 +1,10 @@
 use common::sense;
 
-use lib '.';
-use AnyEvent::CouchDB;
-use Ace;
+use lib '.'; # we need the modified Ace::Model class provided here
 use Ace::Model;
-use WormBase::ModelConverter;
+use Ace;
+use AnyEvent::CouchDB;
+use WormBase::Convert::AceModel;
 use Try::Tiny;
 
 my $db    = shift or die "Need DB\n";
@@ -27,12 +27,13 @@ FINDDB: {
 }
 
 my $model = $ace->model($class) or die "Could not fetch model for class $class\n";
-my $ddoc = model2designdoc($model);
-try { # get the doc for rev first
-    my $exist = $couch->open_doc($ddoc->{_id})->recv;
-    $ddoc->{_rev} = $exist->{_rev};
+for my $ddoc ( model2designdocs($model) ) {
+    try {
+        my $exist = $couch->open_doc($ddoc->{_id})->recv;
+        $ddoc->{_rev} = $exist->{_rev};
+    }
+    catch {
+        when (!/404 - Object Not Found/) { warn $_ }
+    };
+    $couch->save_doc($ddoc)->recv;
 }
-catch {
-    when (!/404 - Object Not Found/) { warn $_ }
-};
-$couch->save_doc($ddoc)->recv;

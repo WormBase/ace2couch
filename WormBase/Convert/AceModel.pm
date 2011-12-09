@@ -1,16 +1,15 @@
-package WormBase::ModelConverter;
+package WormBase::Convert::AceModel;
 
 # converts Ace models into CouchDB views
 
 # namespace change: WormBase::Convert, i.e. WormBase::Convert::AceModel ?
 
-use strict;
-use warnings;
+use common::sense;
 use Ace;
-use JSON;
+use JSON; # XS used if exists
 use Exporter 'import';
 
-our @EXPORT    = qw(model2designdoc get_models);
+our @EXPORT    = qw(model2designdocs get_models);
 our @EXPORT_OK = qw(list_models);
 
 my %standard_views = (
@@ -29,7 +28,7 @@ my %standard_views = (
     id => <<'SUB',
 sub {
     my $doc = shift;
-    dmap($doc->{_id} => $doc->{_id});
+    dmap($doc->{_id} => undef);
 }
 SUB
 );
@@ -61,44 +60,51 @@ sub run {
         or die 'Connection error: ', Ace->error;
 
     foreach my $model (get_models($dbh)) {
-        print $model->name, "\n";
-        my $ddoc = model2designdoc($model);
-        print encode_json($ddoc);
+        say $model->name;
+        for my $ddoc (model2designdocs($model)) {
+            say encode_json($ddoc);
+        }
     }
 }
 
-sub model2designdoc {
+sub model2designdocs {
     my $model = shift;
     my $class = $model->name;
     die 'assert failure, model has unknown chars :', $class
         if $model->name =~ /[^A-Za-z0-9_]/;
-    my $ddoc = {
-        _id      => '_design/' . lc $class,
+
+    my $tag_ddoc = {
+        _id      => '_design/tag',
         language => 'perl',
-        views    => {},
+    };
+    my $tree_ddoc = {
+        _id      => '_design/tree',
+        language => 'perl',
     };
 
+    # put the views in each ddoc
     for my $view_id (keys %standard_views) {
-        $ddoc->{views}->{$view_id}->{map} = $standard_views{$view_id};
+        $tag_ddoc->{views}->{$view_id}->{map}  = $standard_views{$view_id};
+        $tree_ddoc->{views}->{$view_id}->{map} = $standard_views{$view_id};
     }
 
-    ## each tag is a "view"
+    # each tag is a "view"
     for my $tag ($model->tags) {
         warn "For some reason, $tag is not a valid tag.\n"
             unless $model->valid_tag($tag);
 
         my $path_string = join '->',
-                          map { "{'" . $_ . "'}" }
+                          map { "{'tag~$_'}" }
                           $model->path($tag), $tag;
 
         (my $sub_string = SUB_TEMPLATE) =~ s/__PATH__/$path_string/g;
         (my $sub_tree_string = SUB_TREE_TEMPLATE) =~ s/__PATH__/$path_string/g;
 
-        $ddoc->{views}->{$tag}->{map} = $sub_string;
-        $ddoc->{views}->{"${tag}~TREE"}->{map} = $sub_tree_string;
+        $tag_ddoc->{views}->{$tag}->{map}  = $sub_string;
+        $tree_ddoc->{views}->{$tag}->{map} = $sub_tree_string;
     }
 
-    return $ddoc;
+    return ($tag_ddoc, $tree_ddoc);
 }
 
 # requires DB handle
@@ -127,4 +133,4 @@ sub list_models {
 
 run() unless caller;
 
-1;
+__PACKAGE__
