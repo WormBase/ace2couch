@@ -8,6 +8,8 @@ my $dbprefix = shift // 'ws228_';
 
 my $couch = AnyEvent::CouchDB->new; # localhost 5984
 
+my $concurrency = Coro::Semaphore->new(4); # only allow 4 to work at once
+
 my @coros;
 @coros = map {
     my $db = $couch->db($_);
@@ -16,6 +18,7 @@ my @coros;
         for my $ddoc ( map { $_->{doc} } @{ get_all_ddocs($db)->recv->{rows} } ) {
             my $ddn = $db->name . '/' . $ddoc->{_id};
             push @coros, async {
+                my $guard = $concurrency->guard;
                 print "Refreshing $ddn\n";
 
                 (my $model = $ddoc->{_id}) =~ s{_design/}{};
