@@ -9,7 +9,7 @@ use Ace;
 use JSON; # XS used if exists
 use Exporter 'import';
 
-our @EXPORT    = qw(model2designdocs get_models);
+our @EXPORT    = qw(model2designdocs model2pathdocs get_models);
 our @EXPORT_OK = qw(list_models);
 
 my %standard_views = (
@@ -65,13 +65,37 @@ sub run {
             say encode_json($ddoc);
         }
     }
+
+    foreach my $model (get_models($dbh)) {
+        say $model->name;
+        for my $pathdoc (model2pathdocs($model)) {
+            say encode_json($pathdoc);
+        }
+    }
+}
+
+sub model2pathdocs {
+    my $model = shift;
+    my $class = $model->name;
+    die 'assert failure, model has unknown chars :', $class
+        if $class =~ /[^A-Za-z0-9_]/;
+
+    my $pathdoc = { _id => $class };
+    for my $tag ($model->tags) {
+        warn "For some reason, $tag is not a valid tag.\n"
+            unless $model->valid_tag($tag);
+
+        $pathdoc->{$tag} = [ $model->path($tag), $tag ];
+    }
+
+    return $pathdoc;
 }
 
 sub model2designdocs {
     my $model = shift;
     my $class = $model->name;
     die 'assert failure, model has unknown chars :', $class
-        if $model->name =~ /[^A-Za-z0-9_]/;
+        if $class =~ /[^A-Za-z0-9_]/;
 
     my $tag_ddoc = {
         _id      => '_design/tag',

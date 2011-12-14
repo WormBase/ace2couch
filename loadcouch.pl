@@ -101,7 +101,7 @@ while () {
             $treewidth = @row if @row > $treewidth;
         }
         # free up memory
-        undef $data;
+        # undef $data;
         undef $table;
 
         ## parse matix into hash structure

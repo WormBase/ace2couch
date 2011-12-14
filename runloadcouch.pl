@@ -21,6 +21,10 @@ my $pm = Parallel::ForkManager->new(NUM_FORKS);
 mkdir 'logs';
 mkdir 'err';
 
+my $cmd;
+$cmd = qq(perl loadmodels.pl "${DB_PREFIX}_model");
+system($cmd);
+
 opendir(my $dirh, $dir);
 my @files = sort readdir($dirh);
 for my $fname (@files) {
@@ -31,7 +35,6 @@ for my $fname (@files) {
     my $file = File::Spec->catfile($dir, $fname);
 
     $pm->start and next;
-    my $cmd;
 
     $cmd = qq(perl loadviews.pl "${DB_PREFIX}\L${base}\E" "$model");
     print "Loading views for $base into $DB_PREFIX\L$base\E\n";
