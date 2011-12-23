@@ -85,7 +85,7 @@ sub model2pathdocs {
         warn "For some reason, $tag is not a valid tag.\n"
             unless $model->valid_tag($tag);
 
-        $pathdoc->{$tag} = [ $model->path($tag), $tag ];
+        $pathdoc->{$tag} = [ $model->path($tag) ];
     }
 
     return $pathdoc;
