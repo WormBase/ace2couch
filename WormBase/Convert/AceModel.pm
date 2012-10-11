@@ -36,7 +36,7 @@ SUB
 use constant SUB_TEMPLATE => <<'SUB';
 sub {
     my ($doc) = @_;
-    if (my $href = $doc->__PATH__) {
+    if (__PREPATH__( my $href = $doc->__PATH__ )) {
         dmap($doc->{_id} => [keys %$href]);
     }
 }
@@ -45,7 +45,7 @@ SUB
 use constant SUB_TREE_TEMPLATE => <<'SUB';
 sub {
     my ($doc) = @_;
-    if (my $href = $doc->__PATH__) {
+    if (__PREPATH__( my $href = $doc->__PATH__ )) {
         dmap($doc->{_id} => $href);
     }
 }
@@ -116,14 +116,15 @@ sub model2designdocs {
     for my $tag ($model->tags) {
         warn "For some reason, $tag is not a valid tag.\n"
             unless $model->valid_tag($tag);
-
-        my $path_string = join '->',
-                          map { "{'tag~$_'}" }
-                          $model->path($tag), $tag;
-
-        (my $sub_string = SUB_TEMPLATE) =~ s/__PATH__/$path_string/g;
-        (my $sub_tree_string = SUB_TREE_TEMPLATE) =~ s/__PATH__/$path_string/g;
-
+        my @path;
+        my $prepath_string = join '', 
+                             map { push(@path, "{'tag~$_'}"); 
+                                   "\$doc->" . join('->', @path) . " && " } 
+                             $model->path($tag);
+        my $path_string = join '->', @path, "{'tag~$tag\'}";
+        (my $sub_string = SUB_TEMPLATE) =~ s/__PREPATH__([\s\S]*)__PATH__/$prepath_string$1$path_string/g;
+        (my $sub_tree_string = SUB_TREE_TEMPLATE) =~ s/__PREPATH__([\s\S]*)__PATH__/$prepath_string$1$path_string/g;
+print $sub_string;
         $tag_ddoc->{views}->{$tag}->{map}  = $sub_string;
         $tree_ddoc->{views}->{$tag}->{map} = $sub_tree_string;
     }
