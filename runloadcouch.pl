@@ -9,7 +9,7 @@ use Parallel::ForkManager;
 
 use constant NUM_FORKS => 1; # number of cores available
 my $EXTENSION = ".jace";
-my $DB_PREFIX = "ws233_";
+my $DB_PREFIX = "ws234_";
 
 my $dir = shift or die "Need directory\n";
 unless (-e $dir and -d $dir) {
