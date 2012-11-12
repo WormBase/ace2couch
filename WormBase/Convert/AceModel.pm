@@ -124,7 +124,7 @@ sub model2designdocs {
         my $path_string = join '->', @path, "{'tag~$tag\'}";
         (my $sub_string = SUB_TEMPLATE) =~ s/__PREPATH__([\s\S]*)__PATH__/$prepath_string$1$path_string/g;
         (my $sub_tree_string = SUB_TREE_TEMPLATE) =~ s/__PREPATH__([\s\S]*)__PATH__/$prepath_string$1$path_string/g;
-print $sub_string;
+
         $tag_ddoc->{views}->{$tag}->{map}  = $sub_string;
         $tree_ddoc->{views}->{$tag}->{map} = $sub_tree_string;
     }

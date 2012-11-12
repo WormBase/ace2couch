@@ -96,6 +96,7 @@ while () {
         my ($treewidth, $matrix) = (0, []);
         while (<$table>) {
             chomp;
+            next unless $_;
             my @row = split /\t/;
             push @$matrix, \@row;
             $treewidth = @row if @row > $treewidth;
