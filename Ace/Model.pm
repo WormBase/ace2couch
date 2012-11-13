@@ -21,7 +21,7 @@ sub new {
   my ($data,$db,$break_cycle)  = @_;
   $break_cycle ||= {};
 
-  $data=~s!\s+//.*$!!gm;  # remove all comments
+  $data=~s!//.*$!!gm;  # remove all comments
   $data=~s!\0!!g;
   my ($name) = $data =~ /\A[\?\#](\w+)/;
   my $self = bless { 
